@@ -9,12 +9,10 @@ from torch.optim import Optimizer
 from torch.utils.data import DataLoader
 
 
-def save_checkpoint(
-    model_state: dict,
-    optim_state: dict,
-    file_name: Union[str, Path],
-    **params
-) -> None:
+def save_checkpoint(model_state: dict,
+                    optim_state: dict,
+                    file_name: Union[str, Path],
+                    **params) -> None:
     """Checkpoint model params during training."""
     checkpoint = {
         "model_state_dict": model_state,
@@ -31,23 +29,20 @@ def load_checkpoint(file_name: Union[str, Path]) -> dict:
     return torch.load(file_name)
 
 
-def accuracy_score_logits(
-    logits: torch.tensor,
-    true: torch.tensor,
-    normalize: bool = False
-) -> Union[float, int]:
+def accuracy_score_logits(logits: torch.Tensor,
+                          true: torch.Tensor,
+                          normalize: bool = False) -> Union[float, int]:
+    """Calculate accuracy metric from logits tensor."""
     score = torch.sum(true == logits.argmax(dim=1)).item()
 
     return score / len(true) if normalize else score
 
 
-def overfit_one_batch(
-    model: nn.Module,
-    data: DataLoader,
-    optimizer: Optimizer,
-    objective: Callable,
-    n_epochs: int = 100,
-) -> None:
+def overfit_one_batch(model: nn.Module,
+                      data: DataLoader,
+                      optimizer: Optimizer,
+                      objective: Callable,
+                      n_epochs: int = 100,) -> None:
     model.train()
     X, y = next(iter(data))
 
@@ -56,28 +51,6 @@ def overfit_one_batch(
         logits = model(X)
         loss = objective(logits, y)
         if i % 10 == 0:
-            print(f"{loss.item():0.4f}")
+            print(f"{loss.item():0.3f}")
         loss.backward()
         optimizer.step()
-
-
-"""
-def parse_args() -> dict:
-    parser = argparse.ArgumentParser(
-        description="Train model for microstructure classification task.")
-
-    parser.add_argument("--batch_size", type=int, help="Training batch size.")
-    parser.add_argument("--lr", type=float, help="Learning rate.")
-    parser.add_argument("--dev_split", type=float,
-        help="Fraction of dataset to hold out for cross-validation.")
-    parser.add_argument("--seed", type=int, help="Random seed.")
-    parser.add_argument("--cuda", type=bool, help="Access to GPU?")
-    parser.add_argument("--model", type=str, help="Which model to train.")
-    parser.add_argument("--logdir", type=str, help="Where to save logs.")
-    parser.add_argument("--n_epochs", type=int, help="How many training epochs.")
-    parser.add_argument("--quiet", type=bool, help="Silence output to stdout?")
-
-    args = parser.parse_args()
-
-    return dict(vars(args))
-"""
