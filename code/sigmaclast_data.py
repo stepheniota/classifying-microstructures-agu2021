@@ -4,10 +4,64 @@ from typing import Union
 import itertools
 
 import cv2
+import numpy as np
+from sklearn.model_selection import KFold
+from torch.utils.data import Subset
+import torchvision.transforms as T
 from torchvision.datasets import ImageFolder
 
 
-def preprocess_dataset(root: Union[Path, str], quiet: bool = False) -> None:
+DATAPATH = Path("../data/processed_data")
+
+
+class SigmaclastFolder(ImageFolder):
+    """pytorch-friendly dataclass to work with sigmaclast imgs."""
+    def find_classes(self, directory):
+        labels = ("CW", "CCW")
+        cls2idx = {label: i for i, label in enumerate(labels)}
+
+        return labels, cls2idx
+
+
+class CrossValidator:
+    """Performs kfold validation on torch Datasets.
+
+    Parameters
+    ----------
+    dataset: torch.utils.data.Dataset
+        Dataset to cross validate.
+    n_splits: int
+        Number of validation splits desired.
+    seed: int
+        Random seed. Currently unused.
+
+    Attributes
+    ----------
+    cv: sklearn.model_selection.KFold
+        Generator returning train and dev indices for each fold.
+    n_samples: int
+        Length of full dataset.
+    idx: np.array
+        Valid dataset indices.
+    """
+    def __init__(self, dataset, n_splits, seed=None):
+        self.dataset = dataset
+        self.n_splits = n_splits
+        self.n_samples = len(dataset)
+        self.idx = np.arange(self.n_samples)
+        kfold = KFold(n_splits=n_splits,) # random_state=seed,)
+        self.cv = kfold.split(self.idx)
+
+    def __iter__(self):
+        for _ in range(self.n_splits):
+            train_idx, dev_idx = next(self.cv)
+            traindataset = Subset(self.dataset, train_idx)
+            devdataset = Subset(self.dataset, dev_idx)
+
+            yield traindataset, devdataset
+
+
+def preprocess_dataset(root, quiet=False):
     r"""Flips sigmaclast dataset by pi radians.
 
     A sigmaclast's rotation is anti-symetric. By rotating a
@@ -58,9 +112,8 @@ def preprocess_dataset(root: Union[Path, str], quiet: bool = False) -> None:
                 cv2.imwrite(str(CCW_dir/name), img)
                 cv2.imwrite(str(CW_dir/name_flipped), img_flipped)
         except cv2.error as e:
-            if quiet is False:
-                print(f"Error: {e}")
-                print(f"Continuing...")
+            if not quiet:
+                print(f"Error: {e}"); print("Continuing...")
 
     for directory in original_dir.iterdir():
         label = directory.parts[-1]
@@ -71,10 +124,18 @@ def preprocess_dataset(root: Union[Path, str], quiet: bool = False) -> None:
     return None
 
 
-class SigmaclastFolder(ImageFolder):
-    """pytorch-friendly dataclass to work with sigmaclast imgs."""
-    def find_classes(self, directory: str) -> tuple[list[str], dict[str, int]]:
-        labels = ("CW", "CCW")
-        cls2idx = {label: i for i, label in enumerate(labels)}
+def data_pipeline(config):
+    """Pipeline that abstracts datapreprocessing steps."""
+    if config.build_data:
+        preprocess_dataset(config.root)
 
-        return labels, cls2idx
+    transform = T.Compose([
+                    T.ToTensor(),
+                    T.Normalize(mean=config.MEAN, std=config.STD),
+                    T.Resize((32, 32))
+                ])
+
+    dataset = SigmaclastFolder(
+        root=config.root/"processed_data", transform=transform)
+
+    return dataset
