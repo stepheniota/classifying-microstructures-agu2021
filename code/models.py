@@ -2,7 +2,115 @@
 import numpy as np
 import torch
 import torch.nn as nn
-import torchvision.models as models
+import torchvision.models as M
+
+
+class InceptionV3(nn.Module):
+    """Pretrained InceptionV3 with MLP classifier for finetuning.
+
+    Parameters
+    ----------
+    n_classes: int
+        Number of classes.
+    hidden: sequence[int] (optional)
+        The hidden dimensions of the MLP classifier.
+
+    Attributes
+    ----------
+    model: VGG16
+        Pretrained model with no learnable parameters.
+    clf: MLP
+        Custom classification head. Learnable.
+    """
+    def __init__(self, n_classes=2, hidden=None):
+        super().__init__()
+        model = M.inception_v3(pretrained=True)
+        model.requires_grad_(False)
+        in_features = model.fc.in_features
+        model.fc = nn.Identity()
+        self.model = model
+
+        self.clf = MLP(in_features, hidden, n_classes)
+
+    def forward(self, x):
+        """Returns logits."""
+        with torch.no_grad():
+            features = self.model(x)
+        logits = self.clf(features)
+
+
+class VGG16(nn.Module):
+    """Pretrained VGG16 with MLP classifier for finetuning.
+
+    Parameters
+    ----------
+    n_classes: int
+        Number of classes.
+    hidden: sequence[int] (optional)
+        The hidden dimensions of the MLP classifier.
+
+    Attributes
+    ----------
+    model: VGG16
+        Pretrained model with no learnable parameters.
+    clf: MLP
+        Custom classification head. Learnable.
+    """
+    def __init__(self, n_classes=2, hidden=None):
+        super().__init__()
+        model = M.vgg16(pretrained=True)
+        model.requires_grad_(False)
+        in_features = model.classifier[0].in_features
+        model.classifier = nn.Identity()
+        self.model = model
+
+        self.clf = MLP(
+            in_features=in_features, hidden=hidden, n_classes=n_classes
+        )
+
+    def forward(self, x):
+        """Returns logits."""
+        with torch.no_grad():
+            features = self.model(x)
+        logits = self.clf(features)
+
+        return logits
+
+
+class ResNet18(nn.Module):
+    """Pretrained ResNet18 with MLP classifier for finetuning.
+
+    Parameters
+    ----------
+    n_classes: int
+        Number of classes.
+    hidden: sequence[int] (optional)
+        The hidden dimensions of the MLP classifier.
+
+    Attributes
+    ----------
+    model: ResNet18
+        Pretrained model with no learnable parameters.
+    clf: MLP
+        Custom classification head. Learnable.
+    """
+
+    def __init__(self, n_classes=2, hidden=None):
+        super().__init__()
+        model = M.resnet18(pretrained=True)
+        model.requires_grad_(False)
+        in_features = model.fc.in_features
+        model.fc = nn.Identity()
+        self.model = model
+
+        self.clf = MLP(in_features, hidden, n_classes)
+
+    def forward(self, x):
+        with torch.no_grad():
+            features = self.model(x)
+        logits = self.clf(features)
+
+        return logits
 
 
 class CNN(nn.Module):
@@ -10,6 +118,22 @@ class CNN(nn.Module):
 
     Assumes input tensor of shape
         ``(batch_sz, in_channels, img_sz, img_sz)``.
+
+    Parameters
+    ----------
+    in_channels: int
+        Number of input channels of each img (e.g., 3 for rgb imgs).
+    img_sz: int
+        Width/height of imput imgs. Assumes imgs are square.
+    n_classes: int
+        Number of target classes.
+
+    Attributes
+    ----------
+    cnn: nn.Sequential
+        Convolutional layers.
+    classifier: nn.Sequential
+        FFNN that returns logits.
     """
     def __init__(
         self,
@@ -52,45 +176,57 @@ class CNN(nn.Module):
 
 
 class MLP(nn.Module):
-    """Simple FFNN."""
-    def __init__(self, in_features, n_classes=2):
+    """Simple Multilayer Perceptron.
+
+    Parameters
+    ----------
+    in_features: int
+        Input feature size.
+    hidden: iterable[int] (optional)
+        Hidden dimension sizes. default=(256, 128)
+    n_classes: int
+        Number of target classes.
+
+    Attributes
+    ----------
+    fc1: nn.Linear
+        Initial linear layer.
+    hidden: nn.ModuleList
+        Hidden layers.
+    classifier: nn.Linear
+        Final classifier. Returns logits.
+    """
+    def __init__(self, in_features, hidden=None, n_classes=2):
         super().__init__()
-        self.features = nn.Linear(in_features, 128)
-        self.dense = nn.Linear(128, 256)
-        self.classifier = nn.Linear(256, n_classes)
+        if hidden is None:
+            hidden = (256, 128)
+        self.fc1 = nn.Linear(in_features, hidden[0])
+        self.hidden = nn.ModuleList([
+            nn.Linear(hidden[i-1], hidden[i]) for i in range(1, len(hidden))
+        ])
+        # self.hidden = nn.ModuleList(hidden_layers)
+        self.classifier = nn.Linear(hidden[-1], n_classes)
 
     def forward(self, x):
         """Returns logits."""
-        features = torch.relu(
-            self.features(x)
-        )
-        dense = torch.relu(
-            self.dense(features)
-        )
-        logits = self.classifier(dense)
+        h = self.fc1(x)
+        for m in self.hidden:
+            h = torch.relu(h)
+            h = m(h)
+        logits = self.classifier(h)
 
         return logits
 
 
 if __name__ == "__main__":
     # Manual tests
-    batch = 32
-    in_channels = 3
-    img_sz = 32
+    batch = 16
+    in_features = 32
     n_classes = 2
+    hidden = [128, 256, 128]
+    m = MLP(in_features, hidden, n_classes)
 
-    net = CNN(
-        in_channels=in_channels, img_sz=img_sz, n_classes=n_classes,
-    )
-    inp = torch.rand(batch, in_channels, img_sz, img_sz)
-    print(inp.shape)
-
-    out = net(inp)
-    print(out.shape)
-
-    in_features = 64
     inp = torch.rand(batch, in_features)
-    net = MLP(in_features=in_features, n_classes=n_classes)
+    out = m(inp)
 
-    out = net(inp)
     print(out.shape)
