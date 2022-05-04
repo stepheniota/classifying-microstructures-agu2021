@@ -1,0 +1,22 @@
+## Classifying Microstructures ##
+## Configuration file ##
+
+# Training hyperparameters
+batch_size: 32
+n_epochs: 10
+lr: 0.0003
+seed: 12345
+MEAN: 0.4524
+STD: 0.2803
+img_sz: 32
+
+# Validation parameters
+dev_split: 0.2
+n_splits: 5
+
+# General
+cuda: False
+quiet: False
+root: ../data
+build_data: False
+wandb_mode: disabled

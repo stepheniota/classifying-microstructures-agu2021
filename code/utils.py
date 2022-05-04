@@ -1,5 +1,6 @@
 """Useful stand-alone functions."""
-import argparse
+import yaml
+from collections import namedtuple
 from pathlib import Path
 from typing import Callable, Union
 
@@ -7,6 +8,16 @@ import torch
 import torch.nn as nn
 from torch.optim import Optimizer
 from torch.utils.data import DataLoader
+
+
+def load_config(filename="config.yml"):
+    with open(filename, "r") as f:
+        config = yaml.load(f, Loader=yaml.Loader)
+
+    config["root"] = Path(config["root"])
+    config = namedtuple("Params", config.keys())(**config)
+
+    return config
 
 
 def save_checkpoint(model_state: dict,
