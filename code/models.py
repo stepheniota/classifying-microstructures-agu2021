@@ -14,6 +14,7 @@ class InceptionV3(nn.Module):
         Number of classes.
     hidden: sequence[int] (optional)
         The hidden dimensions of the MLP classifier.
+        Defaults to (256, 128).
 
     Attributes
     ----------
@@ -48,6 +49,7 @@ class VGG16(nn.Module):
         Number of classes.
     hidden: sequence[int] (optional)
         The hidden dimensions of the MLP classifier.
+        Defaults to (256, 128).
 
     Attributes
     ----------
@@ -86,6 +88,7 @@ class ResNet18(nn.Module):
         Number of classes.
     hidden: sequence[int] (optional)
         The hidden dimensions of the MLP classifier.
+        Defaults to (256, 128).
 
     Attributes
     ----------
@@ -182,7 +185,7 @@ class MLP(nn.Module):
     ----------
     in_features: int
         Input feature size.
-    hidden: iterable[int] (optional)
+    hidden: sequence[int] (optional)
         Hidden dimension sizes. default=(256, 128)
     n_classes: int
         Number of target classes.
@@ -213,6 +216,8 @@ class MLP(nn.Module):
         for m in self.hidden:
             h = torch.relu(h)
             h = m(h)
+
+        h = torch.relu(h)
         logits = self.classifier(h)
 
         return logits
