@@ -11,6 +11,17 @@ from torch.utils.data import DataLoader
 
 
 def load_config(filename="config.yml"):
+    """Load configuration values.
+
+    Parameters
+    ----------
+    filename: pathlike
+        Path to file.
+
+    Returns
+    -------
+    namedtuple
+    """
     with open(filename, "r") as f:
         config = yaml.load(f, Loader=yaml.Loader)
 
@@ -22,7 +33,7 @@ def load_config(filename="config.yml"):
 
 def save_checkpoint(model_state: dict,
                     optim_state: dict,
-                    file_name: Union[str, Path],
+                    filename: Union[str, Path],
                     **params) -> None:
     """Checkpoint model params during training."""
     checkpoint = {
@@ -32,12 +43,12 @@ def save_checkpoint(model_state: dict,
     for key, val in params.items():
         checkpoint[key] = val
 
-    torch.save(checkpoint, file_name)
+    torch.save(checkpoint, filename)
 
 
-def load_checkpoint(file_name: Union[str, Path]) -> dict:
+def load_checkpoint(filename: Union[str, Path]) -> dict:
     """Retrieve saved model state dict."""
-    return torch.load(file_name)
+    return torch.load(filename)
 
 
 def accuracy_score_logits(logits: torch.Tensor,

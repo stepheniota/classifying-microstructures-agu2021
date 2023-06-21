@@ -26,7 +26,7 @@ def train_batch(net,
     """Standard pytorch training loop logic."""
     net.train()
     acc = total_loss = 0
-    for X, y in tqdm(dataloader, leave=False, disable=True):
+    for X, y in tqdm(dataloader, leave=True, disable=True):
         if device:
             X, y = X.to(device), y.to(device)
         logits = net(X)
@@ -83,8 +83,8 @@ def train(traindata, devdata, params):
 
     device = torch.device("cuda" if params.cuda else "cpu")
 
-    # net = models.CNN(in_channels=3, img_sz=32, n_classes=2)
-    net = models.VGG16(n_classes=2)
+    # net = models.CNN(in_channels=1, img_sz=config.img_sz, n_classes=2)
+    net = models.VGG19(n_classes=2)
     net.to(device)
     optimizer = optim.Adam(net.parameters(), lr=params.lr)
     criterion = nn.CrossEntropyLoss()

@@ -1,32 +1,17 @@
-########################
-## gitignore template ##
-########################
-
-# macOS stuff
+############
+## IGNORE ##
+############
 .DS_Store
-
-# other
 .vscode/
 __pycache__/
-
-# jupyter stuff
 .ipynb_checkpoints/
-
-# LaTeX stuff
-# *.pdf
-*.out
-*.aux
-*.log
-*latexmk
-*gz
-*fls
 
 # Specific
 data/*
 wandb
 
-#############
-## ALLOWED ##
-#############
+###########
+## ALLOW ##
+###########
 # the syntax is like this >>
 # !/path/to/file.ipynb

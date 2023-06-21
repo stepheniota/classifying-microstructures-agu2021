@@ -4,19 +4,19 @@
 # Training hyperparameters
 batch_size: 32
 n_epochs: 10
-lr: 0.0003
-seed: 12345
-MEAN: 0.4524
-STD: 0.2803
-img_sz: 32
+lr: 0.0003  # learning rate
+seed: 12345  # random state
+MEAN: 0.4524  # see data_normalization.py
+STD: 0.2803  # same as above.
+img_sz: 256  # resize imgs
 
 # Validation parameters
-dev_split: 0.2
-n_splits: 5
+dev_split: 0.2  # random train/test split
+n_splits: 5  # number of validation folds
 
 # General
-cuda: False
-quiet: False
-root: ../data
-build_data: False
-wandb_mode: disabled
+cuda: False  # enable training on GPU
+quiet: False  # logging level
+root: ../data  # path to input where original and processed data is stored
+build_data: False  # whether to create preprocessed data
+wandb_mode: disabled  # {online, offline, disabled}

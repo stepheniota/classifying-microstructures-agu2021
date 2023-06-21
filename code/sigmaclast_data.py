@@ -1,11 +1,10 @@
 """Dataclasses to work with Sigmaclast images."""
 from pathlib import Path
-from typing import Union
 import itertools
 
 import cv2
 import numpy as np
-from sklearn.model_selection import KFold
+from sklearn.model_selection import StratifiedKFold, KFold
 from torch.utils.data import Subset
 import torchvision.transforms as T
 from torchvision.datasets import ImageFolder
@@ -33,7 +32,7 @@ class CrossValidator:
     n_splits: int
         Number of validation splits desired.
     seed: int
-        Random seed. Currently unused.
+        Random seed.
 
     Attributes
     ----------
@@ -49,7 +48,7 @@ class CrossValidator:
         self.n_splits = n_splits
         self.n_samples = len(dataset)
         self.idx = np.arange(self.n_samples)
-        kfold = KFold(n_splits=n_splits,) # random_state=seed,)
+        kfold = KFold(n_splits=n_splits, random_state=seed, shuffle=True)
         self.cv = kfold.split(self.idx)
 
     def __iter__(self):
@@ -125,14 +124,25 @@ def preprocess_dataset(root, quiet=False):
 
 
 def data_pipeline(config):
-    """Pipeline that abstracts datapreprocessing steps."""
+    """Pipeline that abstracts datapreprocessing steps.
+
+    Parameters
+    ----------
+    config: namedtuple
+        Loaded from `config.yml`.
+
+    Returns
+    -------
+    torch dataset
+    """
     if config.build_data:
         preprocess_dataset(config.root)
 
     transform = T.Compose([
+                    T.Grayscale(),
                     T.ToTensor(),
                     T.Normalize(mean=config.MEAN, std=config.STD),
-                    T.Resize((32, 32))
+                    T.Resize((config.img_sz, config.img_sz)),
                 ])
 
     dataset = SigmaclastFolder(

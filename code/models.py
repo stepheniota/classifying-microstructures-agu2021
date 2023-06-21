@@ -1,4 +1,4 @@
-"""Models."""
+"""Neural network models."""
 import numpy as np
 import torch
 import torch.nn as nn
@@ -15,15 +15,18 @@ class InceptionV3(nn.Module):
     hidden: sequence[int] (optional)
         The hidden dimensions of the MLP classifier.
         Defaults to (256, 128).
+    act: nn.Module (optional)
+        Activation function for MLP classifer.
+        Defaults to ReLU if none specified.
 
     Attributes
     ----------
-    model: VGG16
+    model: InceptionV3
         Pretrained model with no learnable parameters.
     clf: MLP
         Custom classification head. Learnable.
     """
-    def __init__(self, n_classes=2, hidden=None):
+    def __init__(self, n_classes=2, hidden=None, act=None):
         super().__init__()
         model = M.inception_v3(pretrained=True)
         model.requires_grad_(False)
@@ -31,7 +34,7 @@ class InceptionV3(nn.Module):
         model.fc = nn.Identity()
         self.model = model
 
-        self.clf = MLP(in_features, hidden, n_classes)
+        self.clf = MLP(in_features, *hidden, n_classes, act=act)
 
     def forward(self, x):
         """Returns logits."""
@@ -40,8 +43,8 @@ class InceptionV3(nn.Module):
         logits = self.clf(features)
 
 
-class VGG16(nn.Module):
-    """Pretrained VGG16 with MLP classifier for finetuning.
+class VGG19(nn.Module):
+    """Pretrained VGG19 with MLP classifier for finetuning.
 
     Parameters
     ----------
@@ -50,28 +53,69 @@ class VGG16(nn.Module):
     hidden: sequence[int] (optional)
         The hidden dimensions of the MLP classifier.
         Defaults to (256, 128).
+    act: nn.Module (optional)
+        Activation function for MLP classifer.
+        Defaults to ReLU if none specified.
 
     Attributes
     ----------
-    model: VGG16
+    model: VGG19
         Pretrained model with no learnable parameters.
     clf: MLP
         Custom classification head. Learnable.
     """
-    def __init__(self, n_classes=2, hidden=None):
+    def __init__(self, n_classes=2, hidden=None, act=None):
         super().__init__()
-        model = M.vgg16(pretrained=True)
+        model = M.vgg19(pretrained=True)
         model.requires_grad_(False)
         in_features = model.classifier[0].in_features
         model.classifier = nn.Identity()
         self.model = model
 
-        self.clf = MLP(
-            in_features=in_features, hidden=hidden, n_classes=n_classes
-        )
+        self.clf = MLP(in_features, *hidden, n_classes, act=act)
 
     def forward(self, x):
         """Returns logits."""
+        with torch.no_grad():
+            features = self.model(x)
+        logits = self.clf(features)
+
+        return logits
+
+
+class ResNet50(nn.Module):
+    """Pretrained ResNet18 with MLP classifier for finetuning.
+
+    Parameters
+    ----------
+    n_classes: int
+        Number of classes.
+    hidden: sequence[int] (optional)
+        The hidden dimensions of the MLP classifier.
+        Defaults to (256, 128).
+    act: nn.Module (optional)
+        Activation function for MLP classifer.
+        Defaults to ReLU if none specified.
+
+    Attributes
+    ----------
+    model: ResNet50
+        Pretrained model with no learnable parameters.
+    clf: MLP
+        Custom classification head. Learnable.
+    """
+
+    def __init__(self, n_classes=2, hidden=None, act=None):
+        super().__init__()
+        model = M.resnet50(pretrained=True)
+        model.requires_grad_(False)
+        in_features = model.fc.in_features
+        model.fc = nn.Identity()
+        self.model = model
+
+        self.clf = MLP(in_features, hidden, n_classes, act=act)
+
+    def forward(self, x):
         with torch.no_grad():
             features = self.model(x)
         logits = self.clf(features)
@@ -89,6 +133,9 @@ class ResNet18(nn.Module):
     hidden: sequence[int] (optional)
         The hidden dimensions of the MLP classifier.
         Defaults to (256, 128).
+    act: nn.Module (optional)
+        Activation function for MLP classifer.
+        Defaults to ReLU if none specified.
 
     Attributes
     ----------
@@ -98,7 +145,7 @@ class ResNet18(nn.Module):
         Custom classification head. Learnable.
     """
 
-    def __init__(self, n_classes=2, hidden=None):
+    def __init__(self, n_classes=2, hidden=None, act=None):
         super().__init__()
         model = M.resnet18(pretrained=True)
         model.requires_grad_(False)
@@ -106,7 +153,7 @@ class ResNet18(nn.Module):
         model.fc = nn.Identity()
         self.model = model
 
-        self.clf = MLP(in_features, hidden, n_classes)
+        self.clf = MLP(in_features, hidden, n_classes, act=act)
 
     def forward(self, x):
         with torch.no_grad():
@@ -183,44 +230,35 @@ class MLP(nn.Module):
 
     Parameters
     ----------
-    in_features: int
-        Input feature size.
-    hidden: sequence[int] (optional)
-        Hidden dimension sizes. default=(256, 128)
-    n_classes: int
-        Number of target classes.
+    *dims: sequence of ints
+        Dimensions of hidden layers.
+    act: optional[nn.Module]
+        Activation function. Default=nn.ReLU
 
     Attributes
     ----------
-    fc1: nn.Linear
-        Initial linear layer.
-    hidden: nn.ModuleList
-        Hidden layers.
-    classifier: nn.Linear
-        Final classifier. Returns logits.
+    layers: nn.ModuleList
+        Learnable modules of the model.
+    act: nn.Module
+        Activation function.
     """
-    def __init__(self, in_features, hidden=None, n_classes=2):
+    def __init__(self, *dims, act=None):
         super().__init__()
-        if hidden is None:
-            hidden = (256, 128)
-        self.fc1 = nn.Linear(in_features, hidden[0])
-        self.hidden = nn.ModuleList([
-            nn.Linear(hidden[i-1], hidden[i]) for i in range(1, len(hidden))
+        print(dims)
+
+        self.act = act if act else nn.ReLU()
+        self.layers = nn.ModuleList([
+            nn.Linear(dims[-1], dims[i]) for i in range(1, len(dims))
         ])
-        # self.hidden = nn.ModuleList(hidden_layers)
-        self.classifier = nn.Linear(hidden[-1], n_classes)
 
     def forward(self, x):
         """Returns logits."""
-        h = self.fc1(x)
-        for m in self.hidden:
-            h = torch.relu(h)
-            h = m(h)
+        for i, m in enumerate(self.layers):
+            x = m(x)
+            if len(self.layers) - 1 != i:
+                x = self.act(x)
 
-        h = torch.relu(h)
-        logits = self.classifier(h)
-
-        return logits
+        return x
 
 
 if __name__ == "__main__":
@@ -229,7 +267,8 @@ if __name__ == "__main__":
     in_features = 32
     n_classes = 2
     hidden = [128, 256, 128]
-    m = MLP(in_features, hidden, n_classes)
+    m = MLP(hidden, act=None)
+    print(list(m.modules()))
 
     inp = torch.rand(batch, in_features)
     out = m(inp)
